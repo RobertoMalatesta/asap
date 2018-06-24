@@ -232,7 +232,7 @@ class DelegatingSink : public spdlog::sinks::base_sink<std::mutex>,
  * {
  *   auto &logger =
  *     asap::logging::Registry::GetLogger(asap::logging::Id::TESTING);
- *   BXLOG_TO_LOGGER(debug, "starting...");
+ *   ASLOG_TO_LOGGER(debug, "starting...");
  *
  *   // Initialize a complex GUI system
  *   ...

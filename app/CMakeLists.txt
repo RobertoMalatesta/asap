@@ -32,7 +32,12 @@ list(APPEND MAIN_APP_SRC
         src/imgui_impl_glfw.h
         src/imgui_impl_glfw.cpp
         src/glad.c
-        src/main.cpp
+		src/runner.h
+		src/console_runner.h
+		src/console_runner.cpp
+		src/imgui_runner.h
+		src/imgui_runner.cpp
+		src/main.cpp
         )
 
 # Needed for spdlog
