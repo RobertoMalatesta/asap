@@ -57,8 +57,8 @@ public:
 };
 
 TEST_CASE("TestLogPushSink", "[common][logging]") {
-  spdlog::sinks::sink *first_mock = new MockSink();
-  spdlog::sinks::sink *second_mock = new MockSink();
+  auto *first_mock = new MockSink();
+  auto *second_mock = new MockSink();
 	auto first_sink_ptr = std::shared_ptr<spdlog::sinks::sink>(first_mock);
 	auto second_sink_ptr = std::shared_ptr<spdlog::sinks::sink>(second_mock);
 
@@ -66,27 +66,33 @@ TEST_CASE("TestLogPushSink", "[common][logging]") {
 	Registry::PushSink(first_sink_ptr);
 	ASLOG_TO_LOGGER(test_logger, debug, "message");
 
-  REQUIRE(dynamic_cast<MockSink*>(first_sink_ptr.get())->called_ == 1);
+  REQUIRE(first_mock->called_ == 1);
+  first_mock->Reset();
+  second_mock->Reset();
 
 	Registry::PushSink(second_sink_ptr);
 	ASLOG_TO_LOGGER(test_logger, debug, "message");
 
-  REQUIRE(dynamic_cast<MockSink*>(first_sink_ptr.get())->called_ == 0);
-  REQUIRE(dynamic_cast<MockSink*>(second_sink_ptr.get())->called_ == 1);
+  REQUIRE(first_mock->called_ == 0);
+  REQUIRE(second_mock->called_ == 1);
+  first_mock->Reset();
+  second_mock->Reset();
 
   Registry::PopSink();
-
 	ASLOG_TO_LOGGER(test_logger, debug, "message");
 
-  REQUIRE(dynamic_cast<MockSink*>(first_sink_ptr.get())->called_ == 1);
-  REQUIRE(dynamic_cast<MockSink*>(second_sink_ptr.get())->called_ == 0);
+  REQUIRE(first_mock->called_ == 1);
+  REQUIRE(second_mock->called_ == 0);
+  first_mock->Reset();
+  second_mock->Reset();
 
 	Registry::PopSink();
-
 	ASLOG_TO_LOGGER(test_logger, debug, "message");
 
-  REQUIRE(dynamic_cast<MockSink*>(first_sink_ptr.get())->called_ == 0);
-  REQUIRE(dynamic_cast<MockSink*>(second_sink_ptr.get())->called_ == 0);
+  REQUIRE(first_mock->called_ == 0);
+  REQUIRE(second_mock->called_ == 0);
+  first_mock->Reset();
+  second_mock->Reset();
 }
 
 }  // namespace logging
