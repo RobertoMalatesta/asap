@@ -13,18 +13,18 @@
 #include <GLFW/glfw3.h>
 
 #include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
+#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_opengl3.h>
 // clang-format on
 
-#include <ui/debug_ui.h>
+#include <ui/application.h>
 
 namespace {
-static void glfw_error_callback(int error, const char *description) {
+void glfw_error_callback(int error, const char *description) {
   auto &logger = asap::logging::Registry::GetLogger(asap::logging::Id::MAIN);
   ASLOG_TO_LOGGER(logger, critical, "Glfw Error {}: {}", error, description);
 }
-}
+}  // namespace
 
 namespace asap {
 
@@ -63,14 +63,14 @@ void ImGuiRunner::Init() {
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-  window = glfwCreateWindow(960, 600, "Debug Console", NULL, NULL);
+  window = glfwCreateWindow(960, 600, "Debug Console", nullptr, nullptr);
   if (!window) {
     glfwTerminate();
     exit(EXIT_FAILURE);
   }
 
   glfwMakeContextCurrent(window);
-  gladLoadGL((GLADloadfunc) glfwGetProcAddress);
+  gladLoadGL((GLADloadfunc)glfwGetProcAddress);
   glfwSwapInterval(1);  // Enable vsync
   ASLOG(debug, "  GLFW init done");
 
@@ -78,7 +78,7 @@ void ImGuiRunner::Init() {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
-  (void) io;
+  (void)io;
   // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable
   // Keyboard Controls io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
   // // Enable Gamepad Controls
@@ -87,9 +87,6 @@ void ImGuiRunner::Init() {
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init();
   ASLOG(debug, "  OpenGL3 init done");
-
-  ASLOG(debug, "Initializing UI theme");
-  asap::debug::ui::Theme::Init();
 }
 
 void ImGuiRunner::CleanUp() {
@@ -117,17 +114,14 @@ void ImGuiRunner::CleanUp() {
   shutdown_function_();
 }
 
-void ImGuiRunner::AwaitStop() {
-  auto sink = std::make_shared<asap::debug::ui::ImGuiLogSink>();
-  asap::logging::Registry::PushSink(sink);
-
-  bool show_demo_window = false;
-  bool show_log_messages_window = true;
-
-  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+void ImGuiRunner::Run() {
+  // Create the Application GUI
+  asap::debug::ui::Application app;
+  app.Init();
 
   // Main loop
   bool interrupted = false;
+  bool sleep_when_inactive = true;
   while (!glfwWindowShouldClose(window) && !interrupted) {
     signals_->async_wait(
         [this, &interrupted](boost::system::error_code /*ec*/, int /*signo*/) {
@@ -137,7 +131,18 @@ void ImGuiRunner::AwaitStop() {
           interrupted = true;
           io_context_->stop();
         });
-    io_context_->poll_one();
+
+    if (sleep_when_inactive && !glfwGetWindowAttrib(window, GLFW_FOCUSED)) {
+      static float wanted_fps = 5.0f;
+      float current_fps = ImGui::GetIO().Framerate;
+      float frame_time = 1000 / current_fps;
+      auto wait_time = std::lround(1000 / wanted_fps - frame_time);
+      if (wanted_fps < current_fps) {
+        io_context_->run_for(std::chrono::milliseconds(wait_time));
+      }
+    } else {
+      io_context_->poll_one();
+    }
 
     // Poll and handle events (inputs, window resize, etc.)
     // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to
@@ -155,41 +160,8 @@ void ImGuiRunner::AwaitStop() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    // 1. Show a simple window.
-    // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets
-    // automatically appears in a window called "Debug".
-    {
-      ImGui::ColorEdit3(
-          "clear color",
-          (float *) &clear_color);  // Edit 3 floats representing a color
-
-      ImGui::Checkbox("Demo Window",
-                      &show_demo_window);  // Edit bools storing our windows
-      // open/close state
-      ImGui::Checkbox("Log Messages Window", &show_log_messages_window);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                  1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-    }
-
-    // 3. Show the ImGui demo window. Most of the sample code is in
-    // ImGui::ShowDemoWindow(). Read its code to learn more about Dear
-    // ImGui!
-    if (show_demo_window) {
-      ImGui::SetNextWindowPos(
-          ImVec2(650, 20),
-          ImGuiCond_FirstUseEver);  // Normally user code doesn't need/want
-      // to
-      // call this because positions are saved
-      // in .ini file anyway. Here we just want
-      // to make the demo initial state a bit
-      // more friendly!
-      ImGui::ShowDemoWindow(&show_demo_window);
-    }
-
-    if (show_log_messages_window) {
-      sink->Draw("Log Messages", &show_log_messages_window);
-    }
+    // Draw the Application
+    sleep_when_inactive = app.Draw();
 
     // Rendering
     ImGui::Render();
@@ -197,13 +169,16 @@ void ImGuiRunner::AwaitStop() {
     glfwMakeContextCurrent(window);
     glfwGetFramebufferSize(window, &display_w, &display_h);
     glViewport(0, 0, display_w, display_h);
-    glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+    glClearColor(0, 0, 0, 255);
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
     glfwMakeContextCurrent(window);
     glfwSwapBuffers(window);
   }
+
+  app.ShutDown();
+
   CleanUp();
 }
 

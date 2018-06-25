@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <runner.h>
+#include <runner_base.h>
 
 namespace boost {
 namespace asio {
@@ -26,7 +26,7 @@ class ImGuiRunner : public RunnerBase {
   ImGuiRunner(const ImGuiRunner &) = delete;
   ImGuiRunner &operator=(const ImGuiRunner &) = delete;
 
-  void AwaitStop() override;
+  void Run() override;
 
  private:
   void Init();

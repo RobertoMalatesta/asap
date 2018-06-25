@@ -54,13 +54,13 @@ int main(int argc, char **argv) {
       // Start the console runner
       //
       ConsoleRunner runner(Shutdown);
-      runner.AwaitStop();
+      runner.Run();
     } else {
       //
       // Start the ImGui runner
       //
       ImGuiRunner runner(Shutdown);
-      runner.AwaitStop();
+      runner.Run();
     }
   } catch (std::exception &e) {
     // Restore the original log sink

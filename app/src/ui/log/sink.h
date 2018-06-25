@@ -30,10 +30,10 @@ class ImGuiLogSink : public spdlog::sinks::base_sink<std::mutex> {
 
   void ToggleScrollLock() { scroll_lock_ = !scroll_lock_; }
 
-  void Draw(const char* title, bool* p_open = nullptr);
+  void Draw(const char *title = nullptr, bool *p_open = nullptr);
 
  protected:
-  void _sink_it(const spdlog::details::log_msg& msg) override;
+  void _sink_it(const spdlog::details::log_msg &msg) override;
 
   void _flush() override;
 
@@ -47,7 +47,7 @@ class ImGuiLogSink : public spdlog::sinks::base_sink<std::mutex> {
     std::string message_;
     std::size_t color_range_start_{0};
     std::size_t color_range_end_{0};
-    const ImVec4& color_;
+    const ImVec4 &color_;
     bool emphasis_{false};
   };
   std::vector<LogRecord> records_;

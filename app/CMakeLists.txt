@@ -19,20 +19,27 @@ list(APPEND MAIN_APP_SRC
         src/ui/fonts/material_design_icons.cpp
         src/ui/fonts/material_design_icons.h
         #
-        src/ui/debug_ui.h
+		src/ui/abstract_application.h
+		src/ui/application_base.h
+		src/ui/application_base.cpp
+		src/ui/application.h
+		src/ui/application.cpp
         src/ui/style/theme.h
         src/ui/style/theme.cpp
         src/ui/log/sink.h
         src/ui/log/sink.cpp
-	#
+		#
+		src/imgui/imgui_dock.h
+		src/imgui/imgui_dock.cpp
+		#
         src/KHR/khrplatform.h
         src/glad/gl.h
-        src/imgui_impl_opengl3.h
-        src/imgui_impl_opengl3.cpp
-        src/imgui_impl_glfw.h
-        src/imgui_impl_glfw.cpp
-        src/glad.c
-		src/runner.h
+		src/imgui/imgui_impl_opengl3.h
+		src/imgui/imgui_impl_opengl3.cpp
+		src/imgui/imgui_impl_glfw.h
+		src/imgui/imgui_impl_glfw.cpp
+		src/imgui/glad.c
+		src/runner_base.h
 		src/console_runner.h
 		src/console_runner.cpp
 		src/imgui_runner.h

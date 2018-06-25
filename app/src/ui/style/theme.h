@@ -20,7 +20,7 @@ class Font final {
   static std::string const FAMILY_PROPORTIONAL;
 
   enum class Size {
-    SMALL = 10,   // 10px
+    SMALL = 11,   // 11px
     MEDIUM = 13,  // 13px
     LARGE = 16,   // 16px
     LARGER = 24,  // 20px

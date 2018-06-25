@@ -5,13 +5,18 @@
 
 #pragma once
 
-#include <ui/style/theme.h>
-#include <ui/log/sink.h>
-
 namespace asap {
 namespace debug {
 namespace ui {
 
+class AbstractApplication {
+ public:
+  virtual ~AbstractApplication() = default;
+
+  virtual void Init() = 0;
+  virtual bool Draw() = 0;
+  virtual void ShutDown() = 0;
+};
 
 }  // namespace ui
 }  // namespace debug

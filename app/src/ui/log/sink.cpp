@@ -71,7 +71,12 @@ void ImGuiLogSink::ShowLogFormatPopup() {
 void ImGuiLogSink::Draw(const char *title, bool *open) {
   ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
 
-  ImGui::Begin(title, open);
+  // This is the case when the log viewer is supposed to open in its own ImGui
+  // window (not docked).
+  if (open) {
+    ASAP_ASSERT(title != nullptr);
+    ImGui::Begin(title, open);
+  }
 
   /*
   if (ImGui::Button("Log something...")) {
@@ -256,7 +261,11 @@ void ImGuiLogSink::Draw(const char *title, bool *open) {
   if (!scroll_lock_ && scroll_to_bottom_) ImGui::SetScrollHere(1.0f);
   scroll_to_bottom_ = false;
   ImGui::EndChild();
-  ImGui::End();
+
+  // The case of the log viewer in its own ImGui window (not docked)
+  if (open) {
+    ImGui::End();
+  }
 }
 
 void ImGuiLogSink::_sink_it(const spdlog::details::log_msg &msg) {

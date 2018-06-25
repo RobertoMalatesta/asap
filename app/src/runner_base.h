@@ -20,7 +20,7 @@ class RunnerBase : public asap::logging::Loggable<asap::logging::Id::MAIN> {
 
   virtual ~RunnerBase() = default;
 
-  virtual void AwaitStop() = 0;
+  virtual void Run() = 0;
 
  protected:
   shutdown_function_type shutdown_function_;

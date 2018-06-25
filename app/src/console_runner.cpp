@@ -24,7 +24,7 @@ ConsoleRunner::~ConsoleRunner() {
   delete signals_;
   delete io_context_;
 }
-void ConsoleRunner::AwaitStop() {
+void ConsoleRunner::Run() {
   signals_->async_wait([this](boost::system::error_code /*ec*/, int /*signo*/) {
     ASLOG(info, "Signal caught");
     // The server is stopped by cancelling all outstanding asynchronous

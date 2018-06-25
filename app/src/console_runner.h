@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <runner.h>
+#include <runner_base.h>
 
 namespace boost {
 namespace asio {
@@ -24,7 +24,7 @@ class ConsoleRunner : public RunnerBase {
   ConsoleRunner(const ConsoleRunner &) = delete;
   ConsoleRunner &operator=(const ConsoleRunner &) = delete;
 
-  void AwaitStop() override;
+  void Run() override;
 
  private:
   boost::asio::io_context *io_context_;
