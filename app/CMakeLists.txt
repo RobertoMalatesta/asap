@@ -52,6 +52,7 @@ find_package(Threads REQUIRED)
 
 set(MAIN_APP_LIBRARIES
 	    asap::common
+		yaml-cpp
         spdlog
 		date_interface
         Boost::program_options
