@@ -32,16 +32,27 @@ class ImGuiRunner : public RunnerBase {
   void FullScreen(int width, int height, char const *title, int monitor,
                   int refresh_rate);
 
-  void EnableVsync(bool state = true) const;
-  void MultiSample(int samples) const;
+  void EnableVsync(bool state = true);
+  void MultiSample(int samples);
+  void SetWindowTitle(char const *title);
 
   void Run() override;
+
+  std::string const &GetWindowTitle() const;
+  bool IsFullScreen() const { return full_screen_; };
+  bool IsWindowed() const { return windowed_; };
+  bool IsFullScreenWindowed() const { return windowed_ && full_screen_; };
+  GLFWmonitor *GetMonitor() const;
+  void GetWindowSize(int size[2]) const;
+  void GetWindowPosition(int position[2]) const;
+
+  bool Vsync() const { return vsync_; };
+  int MultiSample() const { return samples_; }
 
  private:
   void SetupSignalHandler();
   void InitGraphics();
   void SetupContext();
-  void SetupFrameBuffer();
   void InitImGui();
   void CleanUp();
 
@@ -50,6 +61,15 @@ class ImGuiRunner : public RunnerBase {
   boost::asio::io_context *io_context_;
   /// The signal_set is used to register for process termination notifications.
   boost::asio::signal_set *signals_;
+
+  std::string window_title_;
+  bool full_screen_{false};
+  bool windowed_{false};
+
+  bool vsync_;
+  int samples_;
+
+  mutable int saved_position_[2]{-1, -1};
 };
 
 }  // namespace asap

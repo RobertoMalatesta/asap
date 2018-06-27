@@ -12,7 +12,7 @@
 
 #include <ui/fonts/fonts.h>
 #include <ui/fonts/material_design_icons.h>
-#include <ui/style/theme.h>
+#include <ui/settings/theme.h>
 
 namespace asap {
 namespace debug {

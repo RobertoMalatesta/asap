@@ -24,8 +24,8 @@ list(APPEND MAIN_APP_SRC
 		src/ui/application_base.cpp
 		src/ui/application.h
 		src/ui/application.cpp
-        src/ui/style/theme.h
-        src/ui/style/theme.cpp
+        src/ui/settings/theme.h
+        src/ui/settings/theme.cpp
         src/ui/log/sink.h
         src/ui/log/sink.cpp
 		#

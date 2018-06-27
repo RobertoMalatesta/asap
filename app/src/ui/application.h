@@ -13,7 +13,7 @@ namespace ui {
 
 class Application final : public ApplicationBase {
  public:
-  Application() = default;
+  Application(ImGuiRunner &runner) : ApplicationBase(runner) {}
 
   /// Not move constructible
   Application(Application &&) = delete;

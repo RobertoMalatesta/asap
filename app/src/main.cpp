@@ -100,6 +100,14 @@ int main(int argc, char **argv) {
         if (has_config && !display["mode"]) {
           ASLOG_TO_LOGGER(logger, warn, "missing 'display/mode' in config");
         }
+
+        if (display["multi-sampling"]) {
+          runner.MultiSample(display["multi-sampling"].as<int>());
+        }
+        if (display["vsync"]) {
+          runner.EnableVsync(display["vsync"].as<bool>());
+        }
+
         auto mode = display["mode"].as<std::string>();
         if (mode == "Full Screen") {
           if (!display["size"]["width"]) {
@@ -155,13 +163,6 @@ int main(int argc, char **argv) {
         } else {
           ASLOG_TO_LOGGER(logger, error, "invalid 'display/mode' ({})", mode);
           runner.Windowed(900, 700, "ASAP Application");
-        }
-
-        if (display["multi-sampling"]) {
-          runner.MultiSample(display["multi-sampling"].as<int>());
-        }
-        if (display["vsync"]) {
-          runner.EnableVsync(display["vsync"].as<bool>());
         }
       } catch (std::exception const &ex) {
         if (has_config) {
