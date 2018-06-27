@@ -15,6 +15,7 @@ class signal_set;
 }  // namespace boost
 
 struct GLFWwindow;
+struct GLFWmonitor;
 
 namespace asap {
 
@@ -26,13 +27,25 @@ class ImGuiRunner : public RunnerBase {
   ImGuiRunner(const ImGuiRunner &) = delete;
   ImGuiRunner &operator=(const ImGuiRunner &) = delete;
 
+  void Windowed(int width, int height, char const *title);
+  void FullScreenWindowed(char const *title, int monitor);
+  void FullScreen(int width, int height, char const *title, int monitor,
+                  int refresh_rate);
+
+  void EnableVsync(bool state = true) const;
+  void MultiSample(int samples) const;
+
   void Run() override;
 
  private:
-  void Init();
+  void SetupSignalHandler();
+  void InitGraphics();
+  void SetupContext();
+  void SetupFrameBuffer();
+  void InitImGui();
   void CleanUp();
 
-  GLFWwindow *window;
+  GLFWwindow *window{nullptr};
 
   boost::asio::io_context *io_context_;
   /// The signal_set is used to register for process termination notifications.
