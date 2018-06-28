@@ -15,11 +15,13 @@ namespace ui {
 bool Application::Draw() {
   bool sleep_when_inactive = ApplicationBase::Draw();
 
-  // TODO: Temporary until we link this to application config and dock layout
-  if (ImGui::BeginDock("Dummy2")) {
-    ImGui::Text("Placeholder!");
+  if (ImGui::GetIO().DisplaySize.y > 0) {
+    // TODO: Temporary until we link this to application config and dock layout
+    if (ImGui::BeginDock("Dummy2")) {
+      ImGui::Text("Placeholder!");
+    }
+    ImGui::EndDock();
   }
-  ImGui::EndDock();
 
   return sleep_when_inactive;
 }

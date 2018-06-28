@@ -46,11 +46,15 @@ class ApplicationBase : public AbstractApplication,
   void DrawLogView();
   void DrawSettings();
   void DrawDocksDebug();
+  void DrawImGuiMetrics();
+  void DrawImGuiDemos();
 
  private:
   bool show_docks_debug_{true};
   bool show_logs_{true};
   bool show_settings_{true};
+  bool show_imgui_metrics_{false};
+  bool show_imgui_demos_{false};
 
   std::shared_ptr<ImGuiLogSink> sink_;
   ImGuiRunner &runner_;

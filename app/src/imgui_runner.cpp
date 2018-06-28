@@ -5,6 +5,8 @@
 
 #include <imgui_runner.h>
 
+#include <fstream>
+
 #include <boost/asio.hpp>
 
 // clang-format off
@@ -17,8 +19,13 @@
 #include <imgui/imgui_impl_opengl3.h>
 // clang-format on
 
+#include <yaml-cpp/yaml.h>
+
 #include <common/assert.h>
 #include <ui/application.h>
+#include <config.h>
+
+namespace bfs = boost::filesystem;
 
 namespace {
 void glfw_error_callback(int error, const char *description) {
@@ -73,7 +80,7 @@ void ImGuiRunner::InitGraphics() {
 void ImGuiRunner::SetupContext() {
   ASAP_ASSERT(window != nullptr);
   glfwMakeContextCurrent(window);
-  gladLoadGL((GLADloadfunc)glfwGetProcAddress);
+  gladLoadGL((GLADloadfunc) glfwGetProcAddress);
   ASLOG(debug, "  context setup done");
 }
 
@@ -82,7 +89,7 @@ void ImGuiRunner::InitImGui() {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
-  (void)io;
+  (void) io;
   // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable
   // Keyboard Controls io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
   // // Enable Gamepad Controls
@@ -221,10 +228,6 @@ void ImGuiRunner::FullScreen(int width, int height, char const *title,
 }
 
 void ImGuiRunner::CleanUp() {
-  // Restore the original log sink
-  ASLOG(debug, "  restore original logging sink");
-  asap::logging::Registry::PopSink();
-
   ASLOG(info, "Cleanup graphical subsystem...");
 
   // Cleanup ImGui
@@ -308,8 +311,9 @@ void ImGuiRunner::Run() {
     glfwSwapBuffers(window);
   }
 
-  app.ShutDown();
+  SaveSetting();
 
+  app.ShutDown();
   CleanUp();
 }
 void ImGuiRunner::EnableVsync(bool state) {
@@ -336,12 +340,178 @@ GLFWmonitor *ImGuiRunner::GetMonitor() const {
 }
 void ImGuiRunner::GetWindowSize(int size[2]) const {
   ASAP_ASSERT(window &&
-              "don't call GetWindowSize() before the window is created");
+                  "don't call GetWindowSize() before the window is created");
   glfwGetWindowSize(window, &size[0], &size[1]);
 }
 void ImGuiRunner::GetWindowPosition(int position[2]) const {
   ASAP_ASSERT(window && "don't call GetMonitor() before the window is created");
   glfwGetWindowPos(window, &position[0], &position[1]);
+}
+
+// -------------------------------------------------------------------------
+// Settings load/save
+// -------------------------------------------------------------------------
+
+void ImGuiRunner::LoadSetting() {
+  YAML::Node config;
+  auto display_settings =
+      asap::fs::GetPathFor(asap::fs::Location::F_DISPLAY_SETTINGS);
+  auto has_config = false;
+  if (bfs::exists(display_settings)) {
+    try {
+      config = YAML::LoadFile(display_settings.string());
+      ASLOG(info, "settings loaded from {}",
+            display_settings);
+      has_config = true;
+    } catch (std::exception const &ex) {
+      ASLOG(error,
+            "error () while loading settings from {}", ex.what(),
+            display_settings);
+    }
+  } else {
+    ASLOG(info, "no {} in current directory",
+          display_settings);
+  }
+
+  auto display = config["display"];
+  if (has_config && !display) {
+    ASLOG(warn, "missing 'display' in config");
+  }
+
+  if (has_config && !display["mode"]) {
+    ASLOG(warn, "missing 'display/mode' in config");
+  }
+
+  if (display["multi-sampling"]) {
+    MultiSample(display["multi-sampling"].as<int>());
+  }
+
+  auto mode = display["mode"].as<std::string>();
+  if (mode == "Full Screen") {
+    if (!display["size"]["width"]) {
+      ASLOG(warn, "missing 'display/size/width' in config");
+    }
+    if (!display["size"]["height"]) {
+      ASLOG(warn, "missing 'display/size/height' in config");
+    }
+    if (!display["title"]) {
+      ASLOG(warn, "missing 'display/title' in config");
+    }
+    if (!display["monitor"]) {
+      ASLOG(warn, "missing 'display/monitor' in config");
+    }
+    if (!display["refresh-rate"]) {
+      ASLOG(warn, "missing 'display/refresh-rate' in config");
+    }
+
+    FullScreen(display["size"]["width"].as<int>(),
+               display["size"]["height"].as<int>(),
+               display["title"].as<std::string>().c_str(),
+               display["monitor"].as<int>(),
+               display["refresh-rate"].as<int>());
+  } else if (mode == "Full Screen Windowed") {
+    if (!display["title"]) {
+      ASLOG(warn, "missing 'display/title' in config");
+    }
+    if (!display["monitor"]) {
+      ASLOG(warn, "missing 'display/monitor' in config");
+    }
+    FullScreenWindowed(display["title"].as<std::string>().c_str(),
+                       display["monitor"].as<int>());
+  } else if (mode == "Windowed") {
+    if (!display["size"]["width"]) {
+      ASLOG(warn, "missing 'display/size/width' in config");
+    }
+    if (!display["size"]["height"]) {
+      ASLOG(warn, "missing 'display/size/height' in config");
+    }
+    if (!display["title"]) {
+      ASLOG(warn, "missing 'display/title' in config");
+    }
+    Windowed(display["size"]["width"].as<int>(),
+             display["size"]["height"].as<int>(),
+             display["title"].as<std::string>().c_str());
+  } else {
+    ASLOG(error, "invalid 'display/mode' ({})", mode);
+    Windowed(900, 700, "ASAP Application");
+  }
+
+  // V-Sync setting after the context is created
+  if (display["vsync"]) {
+    EnableVsync(display["vsync"].as<bool>());
+  }
+}
+
+void ImGuiRunner::SaveSetting() {
+  YAML::Emitter out;
+  out << YAML::BeginMap;
+  {
+    out << YAML::Key << "display";
+    out << YAML::BeginMap;
+    {
+      out << YAML::Key << "title";
+      out << YAML::Value << GetWindowTitle();
+      out << YAML::Key << "mode";
+      if (IsFullScreen()) {
+        if (IsWindowed()) {
+          out << YAML::Value << "Full Screen Windowed";
+          out << YAML::Key << "monitor";
+          out << YAML::Value << GetMonitorId();
+        } else {
+          out << YAML::Value << "Full Screen";
+          out << YAML::Key << "size";
+          int size[2];
+          GetWindowSize(size);
+          out << YAML::BeginMap;
+          {
+            out << YAML::Key << "width";
+            out << YAML::Value << size[0];
+            out << YAML::Key << "height";
+            out << YAML::Value << size[1];
+          }
+          out << YAML::EndMap;
+          out << YAML::Key << "monitor";
+          out << YAML::Value << GetMonitorId();
+          out << YAML::Key << "refresh-rate";
+          out << YAML::Value << RefreshRate();
+        }
+      } else {
+        out << YAML::Value << "Windowed";
+        out << YAML::Key << "size";
+        int size[2];
+        GetWindowSize(size);
+        out << YAML::BeginMap;
+        {
+          out << YAML::Key << "width";
+          out << YAML::Value << size[0];
+          out << YAML::Key << "height";
+          out << YAML::Value << size[1];
+        }
+        out << YAML::EndMap;
+      }
+    }
+    out << YAML::EndMap;
+  }
+  out << YAML::EndMap;
+
+  auto display_settings =
+      asap::fs::GetPathFor(asap::fs::Location::F_DISPLAY_SETTINGS);
+  auto ofs = std::ofstream();
+  ofs.open(display_settings.string());
+  ofs << out.c_str() << std::endl;
+  ofs.close();
+}
+
+int ImGuiRunner::RefreshRate() const {
+  auto vid_mode = glfwGetVideoMode(GetMonitor());
+  return vid_mode->refreshRate;
+}
+
+int ImGuiRunner::GetMonitorId() const {
+  int count = 0;
+  GLFWmonitor **monitors = glfwGetMonitors(&count);
+  while (--count >= 0 && monitors[count] != GetMonitor());
+  return count;
 }
 
 }  // namespace asap

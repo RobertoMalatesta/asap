@@ -35,9 +35,17 @@ void ApplicationBase::Init() {
 }
 
 void ApplicationBase::ShutDown() {
+  // Restore the original log sink
+  asap::logging::Registry::PopSink();
+
   // Call derived class for any custom shutdown logic before we shutdown the
   // app. We do this before to stay consistent with the initialization order.
   BeforeShutDown();
+
+  // Save configuration data:
+  //  - Logging settings
+  //  - Display settings
+  //  - Docks
 
   ImGui::SaveDock();
 
@@ -58,6 +66,8 @@ bool ApplicationBase::Draw() {
     if (show_logs_) DrawLogView();
     if (show_settings_) DrawSettings();
     if (show_docks_debug_) DrawDocksDebug();
+    if (show_imgui_metrics_) DrawImGuiMetrics();
+    if (show_imgui_demos_) DrawImGuiDemos();
   }
 
   // Return true to indicate that we are not doing any calculation and we can
@@ -77,10 +87,22 @@ float ApplicationBase::DrawMainMenu() {
       if (ImGui::MenuItem("Show Logs", "CTRL+SHIFT+L", &show_logs_)) {
         DrawLogView();
       }
-      if (ImGui::MenuItem("Show Style Editor", "CTRL+SHIFT+S",
-                          &show_settings_)) {
+      if (ImGui::MenuItem("Show Docks Debug", "CTRL+SHIFT+D", &show_docks_debug_)) {
+        DrawDocksDebug();
+      }
+      if (ImGui::MenuItem("Show Style Editor", "CTRL+SHIFT+S", &show_settings_)) {
         DrawSettings();
       }
+
+      ImGui::Separator();
+
+      if (ImGui::MenuItem("Show ImGui Metrics", "CTRL+SHIFT+M", &show_imgui_metrics_)) {
+        DrawImGuiMetrics();
+      }
+      if (ImGui::MenuItem("Show ImGui Demos", "CTRL+SHIFT+G", &show_imgui_demos_)) {
+        DrawImGuiDemos();
+      }
+
       ImGui::EndMenu();
     }
     menu_height = ImGui::GetWindowSize().y;
@@ -122,27 +144,35 @@ void ApplicationBase::DrawLogView() {
   ImGui::EndDock();
 }
 
+void ApplicationBase::DrawImGuiMetrics() {
+  ImGui::ShowMetricsWindow();
+}
+
+void ApplicationBase::DrawImGuiDemos() {
+    ImGui::ShowDemoWindow(&show_imgui_demos_);
+}
+
 namespace {
 
 bool DrawDisplaySettingsTitle(ImGuiRunner &runner, char title[80]) {
-  auto copied = runner.GetWindowTitle().copy(title, 79);
-  title[copied] = '\0';
+  auto changed = false;
   if (ImGui::InputText("Window Title", title, 79,
                        ImGuiInputTextFlags_EnterReturnsTrue)) {
-    runner.SetWindowTitle(title);
-    return true;
+    changed = runner.GetWindowTitle() != title;
   }
-  return false;
+  return changed;
 }
 
 bool DrawDisplaySettingsMode(int &display_mode) {
   static const char *mode_items[] = {"Windowed", "Full Screen",
                                      "Full Screen Windowed"};
-  return ImGui::Combo("Display Mode", &display_mode, mode_items,
+  auto changed = ImGui::Combo("Display Mode", &display_mode, mode_items,
                       IM_ARRAYSIZE(mode_items));
+  return changed;
 }
 
 bool DrawDisplaySettingsMonitor(ImGuiRunner &runner, GLFWmonitor *&monitor) {
+  auto changed = false;
   if (ImGui::BeginCombo("Monitor", glfwGetMonitorName(monitor))) {
     int count = 0;
     GLFWmonitor **monitors = glfwGetMonitors(&count);
@@ -150,7 +180,7 @@ bool DrawDisplaySettingsMonitor(ImGuiRunner &runner, GLFWmonitor *&monitor) {
       bool is_selected = (monitors[n] == runner.GetMonitor());
       if (ImGui::Selectable(glfwGetMonitorName(monitors[n]), is_selected)) {
         monitor = monitors[n];
-        return true;
+        changed = true;
       }
       if (is_selected) {
         // Set the initial focus when opening the combo (scrolling + for
@@ -160,15 +190,21 @@ bool DrawDisplaySettingsMonitor(ImGuiRunner &runner, GLFWmonitor *&monitor) {
     }
     ImGui::EndCombo();
   }
-  return false;
+  return changed;
 }
 
-bool DrawDisplaySettingsWindowSize(int size[2]) {
-  return ImGui::InputInt2("Size", size);
+bool DrawDisplaySettingsWindowSize(ImGuiRunner &runner, int size[2]) {
+  auto input_changed = ImGui::InputInt2("Size", size);
+  int current_pos[2];
+  runner.GetWindowSize(current_pos);
+  auto changed = input_changed || (current_pos[0] != size[0])
+      || (current_pos[1] != size[1]);
+  return changed;
 }
 
 bool DrawDisplaySettingsResolution(GLFWmonitor *monitor,
                                    const GLFWvidmode *&resolution) {
+  auto changed = false;
   auto ostr = std::ostringstream();
   ostr << resolution->width << 'x' << resolution->height << " @ "
        << resolution->refreshRate << " Hz";
@@ -184,7 +220,7 @@ bool DrawDisplaySettingsResolution(GLFWmonitor *monitor,
       bool is_selected = (mode == current_mode);
       if (ImGui::Selectable(mode.c_str(), is_selected)) {
         resolution = &video_modes[n];
-        return true;
+        changed = true;
       }
       if (is_selected) {
         // Set the initial focus when opening the combo (scrolling + for
@@ -194,7 +230,7 @@ bool DrawDisplaySettingsResolution(GLFWmonitor *monitor,
     }
     ImGui::EndCombo();
   }
-  return false;
+  return changed;
 }
 
 int GetMonitorIndex(GLFWmonitor *monitor) {
@@ -223,11 +259,15 @@ void ApplicationBase::DrawSettings() {
       static int samples = 0;
       static bool vsync = false;
 
-      static const char *status = "";
+      static bool pending_changes = false;
 
       static bool reset_to_current = true;
       if (reset_to_current) {
         reset_to_current = false;
+
+        auto copied = runner_.GetWindowTitle().copy(title, 79);
+        title[copied] = '\0';
+
         if (runner_.IsWindowed() && runner_.IsFullScreen()) {
           display_mode = 2;
         } else if (runner_.IsFullScreen()) {
@@ -247,15 +287,16 @@ void ApplicationBase::DrawSettings() {
 
         samples = runner_.MultiSample();
 
-        status = "Active";
+        pending_changes = false;
       }
 
       // Toolbar
-      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {5.0f, 0.0f});
-      ImGui::PushStyleColor(ImGuiCol_WindowBg,
+      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {5.0f, 2.0f});
+      ImGui::PushStyleColor(ImGuiCol_ChildWindowBg,
                             ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+
       ImGui::BeginChild("Display Settings Toolbar",
-                        {ImGui::GetContentRegionAvailWidth(), 24}, true,
+                        {ImGui::GetContentRegionAvailWidth(), 20}, true,
                         ImGuiWindowFlags_NoTitleBar |
                             ImGuiWindowFlags_NoScrollbar |
                             ImGuiWindowFlags_NoScrollWithMouse);
@@ -263,21 +304,38 @@ void ApplicationBase::DrawSettings() {
       Font font(Font::FAMILY_PROPORTIONAL);
       font.Italic().Light().LargeSize();
       ImGui::PushFont(font.ImGuiFont());
-      ImGui::TextUnformatted(status);
-      ImGui::PopFont();
+      ImGui::TextUnformatted(pending_changes ? "Changed..." : "Active");
 
-      auto button_color = ImGui::GetStyleColorVec4(ImGuiCol_Button);
-      button_color.w = 0.0f;
-      ImGui::PushStyleColor(ImGuiCol_Button, button_color);
+      bool apply_changes = false;
+      if (pending_changes) {
+        auto button_color = ImGui::GetStyleColorVec4(ImGuiCol_Button);
+        button_color.w = 0.0f;
+        ImGui::PushStyleColor(ImGuiCol_Button, button_color);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {1.0f, 1.0f});
 
-      ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - 55);
-      if (ImGui::Button(ICON_MDI_CHECK_ALL, {20, 20})) {
+        float right_align_pos = ImGui::GetContentRegionAvailWidth();
+        right_align_pos -= 18;
+        ImGui::SameLine(right_align_pos);
+        if (ImGui::Button(ICON_MDI_RESTORE, {18, 18})) {
+          reset_to_current = true;
+        }
+        right_align_pos -= ImGui::GetStyle().ItemSpacing.x;
+
+        right_align_pos -= 18;
+        ImGui::SameLine(right_align_pos);
+        apply_changes = ImGui::Button(ICON_MDI_CHECK_ALL, {18, 18});
+
+        ImGui::PopStyleVar();
+        // Restore the button color
+        ImGui::PopStyleColor();
+      }
+
+      if (apply_changes) {
         runner_.EnableVsync(vsync);
         runner_.MultiSample(samples);
         switch (display_mode) {
           // Windowed
-          case 0:
-            runner_.Windowed(size[0], size[1], title);
+          case 0:runner_.Windowed(size[0], size[1], title);
             break;
 
             // Full Screen
@@ -288,55 +346,55 @@ void ApplicationBase::DrawSettings() {
             break;
 
             // Full Screen Windowed
-          case 2:
-            runner_.FullScreenWindowed(title, GetMonitorIndex(monitor));
+          case 2:runner_.FullScreenWindowed(title, GetMonitorIndex(monitor));
             break;
 
           default:;
         }
-        status = "Active";
+
+        runner_.SetWindowTitle(title);
+        pending_changes = false;
       }
-      ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - 25);
-      if (ImGui::Button(ICON_MDI_RESTORE, {20, 20})) {
-        reset_to_current = true;
-      }
-      // Restore the button color
-      ImGui::PopStyleColor();
+
+      ImGui::PopFont();
       ImGui::EndChild();
+
       ImGui::PopStyleColor();
       ImGui::PopStyleVar();
 
       // Settings
 
       if (DrawDisplaySettingsTitle(runner_, title)) {
-        status = "Changed...";
+        pending_changes = true;
       };
       if (DrawDisplaySettingsMode(display_mode)) {
-        status = "Changed...";
+        pending_changes = true;
       };
       if (display_mode == 1 || display_mode == 2) {
         if (DrawDisplaySettingsMonitor(runner_, monitor)) {
-          status = "Changed...";
+          pending_changes = true;
         }
       }
       if (display_mode == 0) {
-        if (DrawDisplaySettingsWindowSize(size)) {
-          status = "Changed...";
+        if (DrawDisplaySettingsWindowSize(runner_, size)) {
+          pending_changes = true;
         }
       }
       if (display_mode == 1) {
         if (DrawDisplaySettingsResolution(monitor, resolution)) {
-          status = "Changed...";
+          pending_changes = true;
         }
       }
 
       if (ImGui::Checkbox("V-Sync", &vsync)) {
-        status = "Changed...";
+        pending_changes = true;
       }
       if (ImGui::SliderInt("Multi-sampling", &samples, -1, 4, "%d")) {
-        status = "Changed...";
+        pending_changes = true;
       }
     }
+
+    ImGui::Spacing();
 
     if (ImGui::CollapsingHeader("Style")) {
       ImGui::ShowStyleEditor();

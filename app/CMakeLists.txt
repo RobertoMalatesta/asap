@@ -44,6 +44,8 @@ list(APPEND MAIN_APP_SRC
 		src/console_runner.cpp
 		src/imgui_runner.h
 		src/imgui_runner.cpp
+        src/config.h
+        src/config.cpp
 		src/main.cpp
         )
 
@@ -57,6 +59,7 @@ set(MAIN_APP_LIBRARIES
 		date_interface
         Boost::program_options
         Boost::thread
+		Boost::filesystem
         imgui
         glfw
         Threads::Threads

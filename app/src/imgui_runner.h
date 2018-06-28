@@ -27,6 +27,9 @@ class ImGuiRunner : public RunnerBase {
   ImGuiRunner(const ImGuiRunner &) = delete;
   ImGuiRunner &operator=(const ImGuiRunner &) = delete;
 
+  void LoadSetting();
+  void SaveSetting();
+
   void Windowed(int width, int height, char const *title);
   void FullScreenWindowed(char const *title, int monitor);
   void FullScreen(int width, int height, char const *title, int monitor,
@@ -43,11 +46,14 @@ class ImGuiRunner : public RunnerBase {
   bool IsWindowed() const { return windowed_; };
   bool IsFullScreenWindowed() const { return windowed_ && full_screen_; };
   GLFWmonitor *GetMonitor() const;
+  int GetMonitorId() const;
+  int RefreshRate() const;
   void GetWindowSize(int size[2]) const;
   void GetWindowPosition(int position[2]) const;
 
   bool Vsync() const { return vsync_; };
   int MultiSample() const { return samples_; }
+
 
  private:
   void SetupSignalHandler();
