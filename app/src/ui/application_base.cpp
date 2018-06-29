@@ -387,7 +387,7 @@ void ShowDisplaySettings(ImGuiRunner &runner) {
 }
 
 void ShowStyleSettings() {
-  static bool reset_to_current = true;
+  static bool reset_to_current = false;
   if (reset_to_current) {
     reset_to_current = false;
     Theme::LoadStyle();
