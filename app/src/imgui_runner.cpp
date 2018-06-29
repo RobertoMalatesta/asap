@@ -112,14 +112,14 @@ void ImGuiRunner::Windowed(int width, int height, char const *title) {
   if (!window) {
     ASLOG(debug, "  starting in 'Windowed' mode: w={}, h={}, t='{}'", width,
           height, title);
-    glfwWindowHint(GLFW_SAMPLES, GLFW_DONT_CARE);  // multisampling
+    glfwWindowHint(GLFW_SAMPLES, MultiSample());  // multisampling
     window = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (!window) {
       glfwTerminate();
       exit(EXIT_FAILURE);
     }
     SetupContext();
-    glfwSwapInterval(1);  // Enable vsync
+    glfwSwapInterval(Vsync()?1:0);  // Enable vsync
     InitImGui();
   } else {
     ASLOG(debug, "setting 'Windowed' mode: w={}, h={}, t={}", width, height,
@@ -169,7 +169,7 @@ void ImGuiRunner::FullScreenWindowed(char const *title, int monitor) {
     glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
     glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
     glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-    glfwWindowHint(GLFW_SAMPLES, GLFW_DONT_CARE);  // multisampling
+    glfwWindowHint(GLFW_SAMPLES, MultiSample());  // multisampling
     window = glfwCreateWindow(mode->width, mode->height, title, the_monitor,
                               nullptr);
     if (!window) {
@@ -177,7 +177,7 @@ void ImGuiRunner::FullScreenWindowed(char const *title, int monitor) {
       exit(EXIT_FAILURE);
     }
     SetupContext();
-    glfwSwapInterval(1);  // Enable vsync
+    glfwSwapInterval(Vsync()?1:0);  // Enable vsync
     InitImGui();
   } else {
     ASLOG(
@@ -205,14 +205,14 @@ void ImGuiRunner::FullScreen(int width, int height, char const *title,
           "  starting in 'Full Screen' mode: w={}, h={}, t='{}', m={}, r={}",
           width, height, title, monitor, refresh_rate);
     glfwWindowHint(GLFW_REFRESH_RATE, refresh_rate);
-    glfwWindowHint(GLFW_SAMPLES, GLFW_DONT_CARE);  // multisampling
+    glfwWindowHint(GLFW_SAMPLES, MultiSample());  // multisampling
     window = glfwCreateWindow(width, height, title, the_monitor, nullptr);
     if (!window) {
       glfwTerminate();
       exit(EXIT_FAILURE);
     }
     SetupContext();
-    glfwSwapInterval(1);  // Enable vsync
+    glfwSwapInterval(Vsync()?1:0);  // Enable vsync
     InitImGui();
   } else {
     ASLOG(debug, "setting 'Full Screen' mode: w={}, h={}, t='{}', m={}, r={}",
@@ -322,8 +322,8 @@ void ImGuiRunner::EnableVsync(bool state) {
 }
 void ImGuiRunner::MultiSample(int samples) {
   if (samples < 0 || samples > 4) samples = GLFW_DONT_CARE;
-  glfwWindowHint(GLFW_SAMPLES, samples);
   samples_ = samples;
+  glfwWindowHint(GLFW_SAMPLES, MultiSample());
 }
 std::string const &ImGuiRunner::GetWindowTitle() const { return window_title_; }
 void ImGuiRunner::SetWindowTitle(char const *title) {
@@ -348,9 +348,81 @@ void ImGuiRunner::GetWindowPosition(int position[2]) const {
   glfwGetWindowPos(window, &position[0], &position[1]);
 }
 
+int ImGuiRunner::RefreshRate() const {
+  auto vid_mode = glfwGetVideoMode(GetMonitor());
+  return vid_mode->refreshRate;
+}
+
+int ImGuiRunner::GetMonitorId() const {
+  int count = 0;
+  GLFWmonitor **monitors = glfwGetMonitors(&count);
+  while (--count >= 0 && monitors[count] != GetMonitor());
+  return count;
+}
+
 // -------------------------------------------------------------------------
 // Settings load/save
 // -------------------------------------------------------------------------
+
+namespace {
+void ConfigSanityChecks(YAML::Node &config) {
+  auto &logger = asap::logging::Registry::GetLogger(asap::logging::Id::MAIN);
+
+  auto display = config["display"];
+  if ( !display) {
+    ASLOG_TO_LOGGER(logger, warn, "missing 'display' in config");
+  }
+
+  if ( !display["mode"]) {
+    ASLOG_TO_LOGGER(logger, warn, "missing 'display/mode' in config");
+  }
+
+  if (display["multi-sampling"]) {
+    ASLOG_TO_LOGGER(logger, warn, "missing 'display/multi-sampling' in config");
+  }
+  if (display["vsync"]) {
+    ASLOG_TO_LOGGER(logger, warn, "missing 'display/vsync' in config");
+  }
+
+  auto mode = display["mode"].as<std::string>();
+  if (mode == "Full Screen") {
+    if (!display["size"]["width"]) {
+      ASLOG_TO_LOGGER(logger, warn, "missing 'display/size/width' in config");
+    }
+    if (!display["size"]["height"]) {
+      ASLOG_TO_LOGGER(logger, warn, "missing 'display/size/height' in config");
+    }
+    if (!display["title"]) {
+      ASLOG_TO_LOGGER(logger, warn, "missing 'display/title' in config");
+    }
+    if (!display["monitor"]) {
+      ASLOG_TO_LOGGER(logger, warn, "missing 'display/monitor' in config");
+    }
+    if (!display["refresh-rate"]) {
+      ASLOG_TO_LOGGER(logger, warn, "missing 'display/refresh-rate' in config");
+    }
+  } else if (mode == "Full Screen Windowed") {
+    if (!display["title"]) {
+      ASLOG_TO_LOGGER(logger, warn, "missing 'display/title' in config");
+    }
+    if (!display["monitor"]) {
+      ASLOG_TO_LOGGER(logger, warn, "missing 'display/monitor' in config");
+    }
+  } else if (mode == "Windowed") {
+    if (!display["size"]["width"]) {
+      ASLOG_TO_LOGGER(logger, warn, "missing 'display/size/width' in config");
+    }
+    if (!display["size"]["height"]) {
+      ASLOG_TO_LOGGER(logger, warn, "missing 'display/size/height' in config");
+    }
+    if (!display["title"]) {
+      ASLOG_TO_LOGGER(logger, warn, "missing 'display/title' in config");
+    }
+  } else {
+    ASLOG_TO_LOGGER(logger, error, "invalid 'display/mode' ({})", mode);
+  }
+}
+}
 
 void ImGuiRunner::LoadSetting() {
   YAML::Node config;
@@ -372,72 +444,35 @@ void ImGuiRunner::LoadSetting() {
     ASLOG(info, "file {} does not exist", display_settings);
   }
 
-  auto display = config["display"];
-  if (has_config && !display) {
-    ASLOG(warn, "missing 'display' in config");
-  }
+  if (has_config) {
+    ConfigSanityChecks(config);
 
-  if (has_config && !display["mode"]) {
-    ASLOG(warn, "missing 'display/mode' in config");
-  }
-
-  if (display["multi-sampling"]) {
-    MultiSample(display["multi-sampling"].as<int>());
-  }
-
-  auto mode = display["mode"].as<std::string>();
-  if (mode == "Full Screen") {
-    if (!display["size"]["width"]) {
-      ASLOG(warn, "missing 'display/size/width' in config");
+    auto display = config["display"];
+    if (display["multi-sampling"]) {
+      MultiSample(display["multi-sampling"].as<int>());
     }
-    if (!display["size"]["height"]) {
-      ASLOG(warn, "missing 'display/size/height' in config");
-    }
-    if (!display["title"]) {
-      ASLOG(warn, "missing 'display/title' in config");
-    }
-    if (!display["monitor"]) {
-      ASLOG(warn, "missing 'display/monitor' in config");
-    }
-    if (!display["refresh-rate"]) {
-      ASLOG(warn, "missing 'display/refresh-rate' in config");
-    }
-
-    FullScreen(display["size"]["width"].as<int>(),
+    auto mode = display["mode"].as<std::string>();
+    if (mode == "Full Screen") {
+      FullScreen(display["size"]["width"].as<int>(),
+                 display["size"]["height"].as<int>(),
+                 display["title"].as<std::string>().c_str(),
+                 display["monitor"].as<int>(),
+                 display["refresh-rate"].as<int>());
+    } else if (mode == "Full Screen Windowed") {
+      FullScreenWindowed(display["title"].as<std::string>().c_str(),
+                         display["monitor"].as<int>());
+    } else if (mode == "Windowed") {
+      Windowed(display["size"]["width"].as<int>(),
                display["size"]["height"].as<int>(),
-               display["title"].as<std::string>().c_str(),
-               display["monitor"].as<int>(),
-               display["refresh-rate"].as<int>());
-  } else if (mode == "Full Screen Windowed") {
-    if (!display["title"]) {
-      ASLOG(warn, "missing 'display/title' in config");
+               display["title"].as<std::string>().c_str());
+    } else {
+      FullScreenWindowed("ASAP Application", 0);
     }
-    if (!display["monitor"]) {
-      ASLOG(warn, "missing 'display/monitor' in config");
+    if (display["vsync"]) {
+      EnableVsync(display["vsync"].as<bool>());
     }
-    FullScreenWindowed(display["title"].as<std::string>().c_str(),
-                       display["monitor"].as<int>());
-  } else if (mode == "Windowed") {
-    if (!display["size"]["width"]) {
-      ASLOG(warn, "missing 'display/size/width' in config");
-    }
-    if (!display["size"]["height"]) {
-      ASLOG(warn, "missing 'display/size/height' in config");
-    }
-    if (!display["title"]) {
-      ASLOG(warn, "missing 'display/title' in config");
-    }
-    Windowed(display["size"]["width"].as<int>(),
-             display["size"]["height"].as<int>(),
-             display["title"].as<std::string>().c_str());
   } else {
-    ASLOG(error, "invalid 'display/mode' ({})", mode);
-    Windowed(900, 700, "ASAP Application");
-  }
-
-  // V-Sync setting after the context is created
-  if (display["vsync"]) {
-    EnableVsync(display["vsync"].as<bool>());
+    FullScreenWindowed("ASAP Application", 0);
   }
 }
 
@@ -489,6 +524,10 @@ void ImGuiRunner::SaveSetting() {
         out << YAML::EndMap;
       }
     }
+    out << YAML::Key << "multi-sampling";
+    out << YAML::Value << MultiSample();
+    out << YAML::Key << "vsync";
+    out << YAML::Value << Vsync();
     out << YAML::EndMap;
   }
   out << YAML::EndMap;
@@ -499,18 +538,6 @@ void ImGuiRunner::SaveSetting() {
   ofs.open(display_settings.string());
   ofs << out.c_str() << std::endl;
   ofs.close();
-}
-
-int ImGuiRunner::RefreshRate() const {
-  auto vid_mode = glfwGetVideoMode(GetMonitor());
-  return vid_mode->refreshRate;
-}
-
-int ImGuiRunner::GetMonitorId() const {
-  int count = 0;
-  GLFWmonitor **monitors = glfwGetMonitors(&count);
-  while (--count >= 0 && monitors[count] != GetMonitor());
-  return count;
 }
 
 }  // namespace asap

@@ -72,8 +72,8 @@ class ImGuiRunner : public RunnerBase {
   bool full_screen_{false};
   bool windowed_{false};
 
-  bool vsync_;
-  int samples_;
+  bool vsync_{true};
+  int samples_{-1};
 
   mutable int saved_position_[2]{-1, -1};
 };
