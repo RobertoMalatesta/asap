@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/abdes/asap.svg?branch=master)](https://travis-ci.org/abdes/asap)
+
 # Starter project with console/imgui runners
 
 TODO: Documentation
