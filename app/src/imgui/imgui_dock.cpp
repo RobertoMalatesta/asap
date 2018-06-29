@@ -1001,9 +1001,9 @@ struct DockContext {
         fscanf(fp, "%s %d", str2, &id4);
         fscanf(fp, "%s %d", str2, &id5);
 
-#ifdef WIN32
+#ifdef _WIN32
         m_docks[id]->label = _strdup(lab);
-#else 
+#else
 		m_docks[id]->label = strdup(lab);
 #endif
 		m_docks[id]->id = ImHash(m_docks[id]->label, 0);
