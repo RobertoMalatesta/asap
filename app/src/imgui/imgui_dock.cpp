@@ -60,21 +60,7 @@ struct DockContext {
   enum Status_ { Status_Docked, Status_Float, Status_Dragged };
 
   struct Dock {
-    Dock()
-        : id(0),
-          next_tab(nullptr),
-          prev_tab(nullptr),
-          parent(nullptr),
-          pos(0, 0),
-          size(-1, -1),
-          active(true),
-          status(Status_Float),
-          label(nullptr),
-          opened(false),
-          first(true),
-          last_frame(0),
-          location{0},
-          children{nullptr} {}
+    Dock() = default;
 
     ~Dock() { MemFree(label); }
 
@@ -168,20 +154,20 @@ struct DockContext {
       setChildrenPosSize(_pos, _size);
     }
 
-    char *label;
-    ImU32 id;
-    Dock *next_tab;
-    Dock *prev_tab;
-    Dock *children[2];
-    Dock *parent;
-    bool active;
-    ImVec2 pos;
-    ImVec2 size;
-    Status_ status;
-    char location[16];
-    bool opened;
-    bool first;
-    int last_frame;
+    char *label{nullptr};
+    ImU32 id{0};
+    Dock *next_tab{nullptr};
+    Dock *prev_tab{nullptr};
+    Dock *children[2]{nullptr};
+    Dock *parent{nullptr};
+    bool active{true};
+    ImVec2 pos{0,0};
+    ImVec2 size{-1, -1};
+    Status_ status{Status_Float};
+    char location[16]{0};
+    bool opened{false};
+    bool first{true};
+    int last_frame{0};
   };
 
   ImVector<Dock *> m_docks;
@@ -251,7 +237,7 @@ struct DockContext {
       PushID(i);
       if (!IsMouseDown(0)) dock.status = Status_Docked;
 
-      ImVec2 size = dock.children[0]->size;
+      //ImVec2 size = dock.children[0]->size;
       ImVec2 dsize(0, 0);
       SetCursorScreenPos(dock.children[1]->pos);
       ImVec2 min_size0 = dock.children[0]->getMinSize();
@@ -308,7 +294,7 @@ struct DockContext {
     ImGui::PopStyleVar();
   }
 
-  Dock *getDockAt(const ImVec2 &pos) const {
+  Dock *getDockAtMousePos() const {
     for (auto dock_ptr : m_docks) {
       if (dock_ptr->hasChildren()) continue;
       if (dock_ptr->status != Status_Docked) continue;
@@ -415,7 +401,7 @@ struct DockContext {
   }
 
   void handleDrag(Dock &dock) {
-    Dock *dest_dock = getDockAt(GetIO().MousePos);
+    Dock *dest_dock = getDockAtMousePos();
 
     Begin("##Overlay", nullptr,
           ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoTitleBar |
@@ -905,9 +891,10 @@ struct DockContext {
         ImGuiWindowFlags_NoSavedSettings |
         ImGuiWindowFlags_NoBringToFrontOnFocus | extra_flags;
     char tmp[256];
-    strcpy(tmp, label);
-    strcat(tmp,
-           "_docked");  // to avoid https://github.com/ocornut/imgui/issues/713
+    strncpy(tmp, label, 247);
+    tmp[247] = '\0';
+    strncat(tmp,
+           "_docked", 8);  // to avoid https://github.com/ocornut/imgui/issues/713
     bool ret = BeginChild(tmp, size, true, flags);
     PopStyleColor();
     PopStyleColor();

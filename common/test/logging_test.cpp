@@ -47,10 +47,10 @@ TEST_CASE("TestLogWithPrefix", "[common][logging]") {
 
 class MockSink : public spdlog::sinks::sink {
 public:
-  void log(const spdlog::details::log_msg &) {
+  void log(const spdlog::details::log_msg &) override {
     ++called_;
   }
-  void flush() {}
+  void flush() override {}
   void Reset() { called_ = 0; }
 
   int called_{0};

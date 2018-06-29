@@ -81,6 +81,7 @@ if( CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT )
     set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE STRING "The path to use for make install" FORCE)
 endif()
 
+add_subdirectory(third_party)
 
 # ------------------------------------------------------------------------------
 # Clang Tidy
@@ -238,6 +239,5 @@ endif ()
 
 
 # Project modules
-add_subdirectory(third_party)
 add_subdirectory(common)
 add_subdirectory(app)
