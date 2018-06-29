@@ -17,7 +17,9 @@ list(APPEND COMMON_PUBLIC_INCLUDE_DIRS
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         )
 
-set(COMMON_PUBLIC_LIBRARIES spdlog Boost::boost)
+find_package(Threads REQUIRED)
+
+set(COMMON_PUBLIC_LIBRARIES spdlog Boost::boost Threads::Threads)
 if(WIN32)
 list(APPEND COMMON_PUBLIC_LIBRARIES dbghelp)
 endif(WIN32)
