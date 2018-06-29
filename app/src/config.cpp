@@ -39,6 +39,8 @@ bfs::path GetPathFor(Location id) {
       return p;
     }
   }
+  // Worakround only for MSVC complaining
+  return bfs::current_path().append("__unreachable__");
 }
 
 void CreateDirectories() {
