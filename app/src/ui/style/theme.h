@@ -34,13 +34,13 @@ class Font final {
   enum class Weight { LIGHT, REGULAR, BOLD };
   static char const *WeightString(Font::Weight weight);
 
-  Font(std::string family);
+  explicit Font(std::string family);
   Font(Font const &other);
   Font &operator=(Font const &rhs);
-  Font(Font &&moved);
-  Font &operator=(Font &&moved);
+  Font(Font &&moved) noexcept;
+  Font &operator=(Font &&moved) noexcept;
   void swap(Font &other);
-  ~Font();
+  ~Font() = default;
 
   std::string const &Name() const { return name_; }
   ImFont *ImGuiFont() { return font_; }
@@ -77,11 +77,15 @@ class Theme {
 
   static ImFont *GetIconsFont() { return icons_font_normal_; }
 
+  static void SaveStyle();
+  static void LoadStyle();
+
+  static void LoadDefaultStyle();
+
  private:
-  Theme() {}
+  Theme() = default;
 
   static void LoadDefaultFonts();
-  static void LoadColors();
 
   static void AddFont(std::string const &name, ImFont *font);
 

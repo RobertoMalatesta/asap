@@ -377,10 +377,10 @@ void ConfigSanityChecks(YAML::Node &config) {
     ASLOG_TO_LOGGER(logger, warn, "missing 'display/mode' in config");
   }
 
-  if (display["multi-sampling"]) {
+  if (!display["multi-sampling"]) {
     ASLOG_TO_LOGGER(logger, warn, "missing 'display/multi-sampling' in config");
   }
-  if (display["vsync"]) {
+  if (!display["vsync"]) {
     ASLOG_TO_LOGGER(logger, warn, "missing 'display/vsync' in config");
   }
 
@@ -432,7 +432,7 @@ void ImGuiRunner::LoadSetting() {
   if (bfs::exists(display_settings)) {
     try {
       config = YAML::LoadFile(display_settings.string());
-      ASLOG(info, "settings loaded from {}",
+      ASLOG(info, "display settings loaded from {}",
             display_settings);
       has_config = true;
     } catch (std::exception const &ex) {

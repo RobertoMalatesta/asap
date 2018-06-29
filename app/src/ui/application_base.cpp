@@ -29,7 +29,7 @@ void ApplicationBase::Init() {
   sink_->LoadSettings();
 
   ASLOG(debug, "Initializing UI theme");
-  asap::debug::ui::Theme::Init();
+  Theme::Init();
 
   ImGui::LoadDock();
 
@@ -47,9 +47,10 @@ void ApplicationBase::ShutDown() {
 
   // Save configuration data:
   //  - Logging settings
-  //  - Display settings
+  //  - Theme settings
   //  - Docks
   sink_->SaveSettings();
+  Theme::SaveStyle();
 
   ImGui::SaveDock();
 
@@ -94,7 +95,7 @@ float ApplicationBase::DrawMainMenu() {
       if (ImGui::MenuItem("Show Docks Debug", "CTRL+SHIFT+D", &show_docks_debug_)) {
         DrawDocksDebug();
       }
-      if (ImGui::MenuItem("Show Style Editor", "CTRL+SHIFT+S", &show_settings_)) {
+      if (ImGui::MenuItem("Show Settings", "CTRL+SHIFT+S", &show_settings_)) {
         DrawSettings();
       }
 
@@ -245,6 +246,199 @@ int GetMonitorIndex(GLFWmonitor *monitor) {
   }
   return 0;
 }
+
+void ShowDisplaySettings(ImGuiRunner &runner) {
+  static char title[80];
+  static int display_mode = 0;
+  static GLFWmonitor *monitor = nullptr;
+  static int size[2] = {0, 0};
+  static const GLFWvidmode *resolution = nullptr;
+  static int samples = 0;
+  static bool vsync = false;
+
+  static bool pending_changes = false;
+
+  static bool reset_to_current = true;
+  if (reset_to_current) {
+    reset_to_current = false;
+
+    auto copied = runner.GetWindowTitle().copy(title, 79);
+    title[copied] = '\0';
+
+    if (runner.IsWindowed() && runner.IsFullScreen()) {
+      display_mode = 2;
+    } else if (runner.IsFullScreen()) {
+      display_mode = 1;
+    } else {
+      display_mode = 0;
+    }
+
+    runner.GetWindowSize(size);
+
+    monitor = runner.GetMonitor();
+    if (!monitor) monitor = glfwGetPrimaryMonitor();
+
+    resolution = glfwGetVideoMode(monitor);
+
+    vsync = runner.Vsync();
+
+    samples = runner.MultiSample();
+
+    pending_changes = false;
+  }
+
+  // Toolbar
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {5.0f, 2.0f});
+  ImGui::PushStyleColor(
+      ImGuiCol_ChildWindowBg,
+      (pending_changes) ?
+      ImGui::GetStyleColorVec4(ImGuiCol_PlotLinesHovered) :
+      ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+
+  ImGui::BeginChild("Display Settings Toolbar",
+                    {ImGui::GetContentRegionAvailWidth(), 20}, true,
+                    ImGuiWindowFlags_NoTitleBar |
+                        ImGuiWindowFlags_NoScrollbar |
+                        ImGuiWindowFlags_NoScrollWithMouse);
+
+  Font font(Font::FAMILY_PROPORTIONAL);
+  font.Italic().Light().LargeSize();
+  ImGui::PushFont(font.ImGuiFont());
+  ImGui::TextUnformatted(pending_changes ? "Changed..." : "Active");
+
+  if (pending_changes) {
+    auto button_color = ImGui::GetStyleColorVec4(ImGuiCol_Button);
+    button_color.w = 0.0f;
+    ImGui::PushStyleColor(ImGuiCol_Button, button_color);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {1.0f, 1.0f});
+
+    float right_align_pos = ImGui::GetContentRegionAvailWidth();
+    right_align_pos -= 18;
+    ImGui::SameLine(right_align_pos);
+    if (ImGui::Button(ICON_MDI_RESTORE, {18, 18})) {
+      reset_to_current = true;
+    }
+    right_align_pos -= ImGui::GetStyle().ItemSpacing.x;
+
+    right_align_pos -= 18;
+    ImGui::SameLine(right_align_pos);
+    if (ImGui::Button(ICON_MDI_CHECK_ALL, {18, 18})) {
+      runner.EnableVsync(vsync);
+      runner.MultiSample(samples);
+      switch (display_mode) {
+        case 0:
+          runner.Windowed(size[0], size[1], title);
+          break;
+        case 1:
+          runner.FullScreen(resolution->width, resolution->height, title,
+                             GetMonitorIndex(monitor),
+                             resolution->refreshRate);
+          break;
+        case 2:runner.FullScreenWindowed(title, GetMonitorIndex(monitor));
+          break;
+        default:;
+      }
+      runner.SetWindowTitle(title);
+      pending_changes = false;
+    }
+
+    ImGui::PopStyleVar();
+    // Restore the button color
+    ImGui::PopStyleColor();
+  }
+
+  ImGui::PopFont();
+  ImGui::EndChild();
+
+  ImGui::PopStyleColor();
+  ImGui::PopStyleVar();
+
+  // Settings
+
+  if (DrawDisplaySettingsTitle(runner, title)) {
+    pending_changes = true;
+  };
+  if (DrawDisplaySettingsMode(display_mode)) {
+    pending_changes = true;
+  };
+  if (display_mode == 1 || display_mode == 2) {
+    if (DrawDisplaySettingsMonitor(runner, monitor)) {
+      pending_changes = true;
+    }
+  }
+  if (display_mode == 0) {
+    if (DrawDisplaySettingsWindowSize(runner, size)) {
+      pending_changes = true;
+    }
+  }
+  if (display_mode == 1) {
+    if (DrawDisplaySettingsResolution(monitor, resolution)) {
+      pending_changes = true;
+    }
+  }
+
+  if (ImGui::Checkbox("V-Sync", &vsync)) {
+    pending_changes = true;
+  }
+  if (ImGui::SliderInt("Multi-sampling", &samples, -1, 4, "%d")) {
+    pending_changes = true;
+  }
+
+}
+
+void ShowStyleSettings() {
+  static bool reset_to_current = true;
+  if (reset_to_current) {
+    reset_to_current = false;
+    Theme::LoadStyle();
+  }
+  // Toolbar
+  {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {5.0f, 2.0f});
+    ImGui::PushStyleColor(ImGuiCol_ChildWindowBg,
+                          ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+    {
+      ImGui::BeginChild("Style Settings Toolbar",
+                        {ImGui::GetContentRegionAvailWidth(), 20}, true,
+                        ImGuiWindowFlags_NoTitleBar |
+                            ImGuiWindowFlags_NoScrollbar |
+                            ImGuiWindowFlags_NoScrollWithMouse);
+      {
+        if (ImGui::SmallButton("Load Default Style")) {
+          Theme::LoadDefaultStyle();
+        }
+      }
+      {
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {1.0f, 1.0f});
+        auto button_color = ImGui::GetStyleColorVec4(ImGuiCol_Button);
+        button_color.w = 0.0f;
+        ImGui::PushStyleColor(ImGuiCol_Button, button_color);
+
+        float right_align_pos = ImGui::GetContentRegionAvailWidth();
+        right_align_pos -= 18;
+        ImGui::SameLine(right_align_pos);
+        Font font(Font::FAMILY_PROPORTIONAL);
+        font.Italic().Light().LargeSize();
+        ImGui::PushFont(font.ImGuiFont());
+        if (ImGui::Button(ICON_MDI_RESTORE, {18, 18})) {
+          reset_to_current = true;
+        }
+        ImGui::PopFont();
+
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar();
+      }
+
+      ImGui::EndChild();
+    }
+
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
+  }
+
+  ImGui::ShowStyleEditor();
+}
+
 }  // namespace
 
 void ApplicationBase::DrawSettings() {
@@ -255,153 +449,13 @@ void ApplicationBase::DrawSettings() {
       first_time = false;
     }
     if (ImGui::CollapsingHeader("Display")) {
-      static char title[80];
-      static int display_mode = 0;
-      static GLFWmonitor *monitor = nullptr;
-      static int size[2] = {0, 0};
-      static const GLFWvidmode *resolution = nullptr;
-      static int samples = 0;
-      static bool vsync = false;
-
-      static bool pending_changes = false;
-
-      static bool reset_to_current = true;
-      if (reset_to_current) {
-        reset_to_current = false;
-
-        auto copied = runner_.GetWindowTitle().copy(title, 79);
-        title[copied] = '\0';
-
-        if (runner_.IsWindowed() && runner_.IsFullScreen()) {
-          display_mode = 2;
-        } else if (runner_.IsFullScreen()) {
-          display_mode = 1;
-        } else {
-          display_mode = 0;
-        }
-
-        runner_.GetWindowSize(size);
-
-        monitor = runner_.GetMonitor();
-        if (!monitor) monitor = glfwGetPrimaryMonitor();
-
-        resolution = glfwGetVideoMode(monitor);
-
-        vsync = runner_.Vsync();
-
-        samples = runner_.MultiSample();
-
-        pending_changes = false;
-      }
-
-      // Toolbar
-      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {5.0f, 2.0f});
-      ImGui::PushStyleColor(ImGuiCol_ChildWindowBg,
-                            ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
-
-      ImGui::BeginChild("Display Settings Toolbar",
-                        {ImGui::GetContentRegionAvailWidth(), 20}, true,
-                        ImGuiWindowFlags_NoTitleBar |
-                            ImGuiWindowFlags_NoScrollbar |
-                            ImGuiWindowFlags_NoScrollWithMouse);
-
-      Font font(Font::FAMILY_PROPORTIONAL);
-      font.Italic().Light().LargeSize();
-      ImGui::PushFont(font.ImGuiFont());
-      ImGui::TextUnformatted(pending_changes ? "Changed..." : "Active");
-
-      bool apply_changes = false;
-      if (pending_changes) {
-        auto button_color = ImGui::GetStyleColorVec4(ImGuiCol_Button);
-        button_color.w = 0.0f;
-        ImGui::PushStyleColor(ImGuiCol_Button, button_color);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {1.0f, 1.0f});
-
-        float right_align_pos = ImGui::GetContentRegionAvailWidth();
-        right_align_pos -= 18;
-        ImGui::SameLine(right_align_pos);
-        if (ImGui::Button(ICON_MDI_RESTORE, {18, 18})) {
-          reset_to_current = true;
-        }
-        right_align_pos -= ImGui::GetStyle().ItemSpacing.x;
-
-        right_align_pos -= 18;
-        ImGui::SameLine(right_align_pos);
-        apply_changes = ImGui::Button(ICON_MDI_CHECK_ALL, {18, 18});
-
-        ImGui::PopStyleVar();
-        // Restore the button color
-        ImGui::PopStyleColor();
-      }
-
-      if (apply_changes) {
-        runner_.EnableVsync(vsync);
-        runner_.MultiSample(samples);
-        switch (display_mode) {
-          // Windowed
-          case 0:runner_.Windowed(size[0], size[1], title);
-            break;
-
-            // Full Screen
-          case 1:
-            runner_.FullScreen(resolution->width, resolution->height, title,
-                               GetMonitorIndex(monitor),
-                               resolution->refreshRate);
-            break;
-
-            // Full Screen Windowed
-          case 2:runner_.FullScreenWindowed(title, GetMonitorIndex(monitor));
-            break;
-
-          default:;
-        }
-
-        runner_.SetWindowTitle(title);
-        pending_changes = false;
-      }
-
-      ImGui::PopFont();
-      ImGui::EndChild();
-
-      ImGui::PopStyleColor();
-      ImGui::PopStyleVar();
-
-      // Settings
-
-      if (DrawDisplaySettingsTitle(runner_, title)) {
-        pending_changes = true;
-      };
-      if (DrawDisplaySettingsMode(display_mode)) {
-        pending_changes = true;
-      };
-      if (display_mode == 1 || display_mode == 2) {
-        if (DrawDisplaySettingsMonitor(runner_, monitor)) {
-          pending_changes = true;
-        }
-      }
-      if (display_mode == 0) {
-        if (DrawDisplaySettingsWindowSize(runner_, size)) {
-          pending_changes = true;
-        }
-      }
-      if (display_mode == 1) {
-        if (DrawDisplaySettingsResolution(monitor, resolution)) {
-          pending_changes = true;
-        }
-      }
-
-      if (ImGui::Checkbox("V-Sync", &vsync)) {
-        pending_changes = true;
-      }
-      if (ImGui::SliderInt("Multi-sampling", &samples, -1, 4, "%d")) {
-        pending_changes = true;
-      }
+      ShowDisplaySettings(runner_);
     }
 
     ImGui::Spacing();
 
     if (ImGui::CollapsingHeader("Style")) {
-      ImGui::ShowStyleEditor();
+      ShowStyleSettings();
     }
   }
   ImGui::EndDock();
