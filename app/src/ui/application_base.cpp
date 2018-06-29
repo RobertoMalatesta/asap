@@ -14,6 +14,7 @@
 #include <ui/application_base.h>
 #include <ui/fonts/material_design_icons.h>
 #include <ui/log/sink.h>
+#include <ui/style/theme.h>
 
 namespace asap {
 namespace debug {
@@ -24,6 +25,8 @@ ApplicationBase::ApplicationBase(ImGuiRunner &runner) : runner_(runner) {}
 void ApplicationBase::Init() {
   sink_ = std::make_shared<asap::debug::ui::ImGuiLogSink>();
   asap::logging::Registry::PushSink(sink_);
+
+  sink_->LoadSettings();
 
   ASLOG(debug, "Initializing UI theme");
   asap::debug::ui::Theme::Init();
@@ -46,6 +49,7 @@ void ApplicationBase::ShutDown() {
   //  - Logging settings
   //  - Display settings
   //  - Docks
+  sink_->SaveSettings();
 
   ImGui::SaveDock();
 

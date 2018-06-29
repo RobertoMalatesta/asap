@@ -58,7 +58,7 @@ inline constexpr const char *LoggerName(Id id) {
 // Logger
 // ---------------------------------------------------------------------------
 
-Logger::Logger(std::string name, spdlog::sink_ptr sink) {
+Logger::Logger(std::string name, logging::Id id, spdlog::sink_ptr sink) : id_(id) {
   logger_ = std::make_shared<spdlog::logger>(name, sink);
   logger_->set_pattern(DEFAULT_LOG_FORMAT);
   logger_->set_level(spdlog::level::trace);
@@ -106,7 +106,7 @@ void Registry::SetLogLevel(spdlog::level::level_enum log_level) {
   auto &loggers = Loggers();
   std::for_each(loggers.begin(), loggers.end(), [log_level](Logger &log) {
     // Thread safe
-    log.setLevel(log_level);
+    log.Level(log_level);
   });
 }
 
@@ -129,7 +129,7 @@ std::vector<Logger> &Registry::all_loggers_() {
   static auto *all_loggers = new std::vector<Logger>();
   for (auto id = Id::MISC; id < Id::INVALID_; ++id) {
     auto name = LoggerName(id);
-    all_loggers->emplace_back(Logger(name, delegating_sink()));
+    all_loggers->emplace_back(Logger(name, id, delegating_sink()));
   }
   return *all_loggers;
 }

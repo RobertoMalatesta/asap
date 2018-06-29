@@ -11,14 +11,15 @@
 #include <spdlog/sinks/sink.h>
 #include <spdlog/spdlog.h>
 
+#include <common/include/common/logging.h>
 #include <imgui.h>
-#include <ui/settings/theme.h>
 
 namespace asap {
 namespace debug {
 namespace ui {
 
-class ImGuiLogSink : public spdlog::sinks::base_sink<std::mutex> {
+class ImGuiLogSink : public spdlog::sinks::base_sink<std::mutex>,
+                     asap::logging::Loggable<asap::logging::Id::MAIN> {
  public:
   void Clear();
 
@@ -31,6 +32,9 @@ class ImGuiLogSink : public spdlog::sinks::base_sink<std::mutex> {
   void ToggleScrollLock() { scroll_lock_ = !scroll_lock_; }
 
   void Draw(const char *title = nullptr, bool *p_open = nullptr);
+
+  void LoadSettings();
+  void SaveSettings();
 
  protected:
   void _sink_it(const spdlog::details::log_msg &msg) override;

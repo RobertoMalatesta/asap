@@ -369,8 +369,7 @@ void ImGuiRunner::LoadSetting() {
             display_settings);
     }
   } else {
-    ASLOG(info, "no {} in current directory",
-          display_settings);
+    ASLOG(info, "file {} does not exist", display_settings);
   }
 
   auto display = config["display"];

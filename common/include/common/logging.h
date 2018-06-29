@@ -62,7 +62,7 @@ class Logger : private asap::NonCopiable {
 
   /// Move constructor
   Logger(Logger &&other) noexcept
-      : logger_(std::move(other.logger_)),
+      : id_(other.id_), logger_(std::move(other.logger_)),
         logger_mutex_(std::move(other.logger_mutex_)){};
 
   /// Move assignment
@@ -89,11 +89,21 @@ class Logger : private asap::NonCopiable {
   const std::string &Name() const { return logger_->name(); }
 
   /*!
+   * @brief Get this logger's id.
+   *
+   * @return the logger id.
+   * @see Id
+   */
+  logging::Id Id() const { return id_; }
+
+  /*!
    * @brief Set the logging level for this logger (e.g. debug, warning...).
    *
    * @param [in] level logging level.
    */
-  void setLevel(spdlog::level::level_enum level) { logger_->set_level(level); }
+  void Level(spdlog::level::level_enum level) { logger_->set_level(level); }
+
+  spdlog::level::level_enum Level() const { return logger_->level(); }
 
   /// Default format for all loggers.
   /// @see https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
@@ -118,8 +128,10 @@ class Logger : private asap::NonCopiable {
    * @see Registry::GetLogger(Id)
    * @see Id
    */
-  Logger(std::string name, spdlog::sink_ptr sink);
+  Logger(std::string name, logging::Id id, spdlog::sink_ptr sink);
 
+  /// The logger id
+  logging::Id id_;
   /// The underlying spdlog::logger instance.
   std::shared_ptr<spdlog::logger> logger_;
   /// Synchronization lock used to synchronize logging over this logger from
@@ -282,6 +294,9 @@ class Registry {
    */
   static spdlog::logger &GetLogger(Id id);
 
+  /// API access to the collection of registered loggers.
+  static std::vector<Logger> &Loggers();
+
   /*!
    * @brief Use the given sink for all subsequent logging operations until a
    * call to PopSink() is made.
@@ -312,8 +327,6 @@ class Registry {
   // provides the API to access the static data member. That second method also
   // caches the static member to optimize the call.
 
-  /// API access to the collection of registered loggers.
-  static std::vector<Logger> &Loggers();
   /// Internal initialization of the static collection of loggers.
   static std::vector<Logger> &all_loggers_();
   /// A synchronization object for concurrent access to the collection of
