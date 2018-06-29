@@ -80,6 +80,6 @@ asap_executable(TARGET
         LIBRARIES
         ${MAIN_APP_LIBRARIES}
 )
-set_tidy_target_properties(ndagent)
+set_tidy_target_properties(asap_app)
 
 set_cppcheck_command()
