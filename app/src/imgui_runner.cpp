@@ -289,6 +289,12 @@ void ImGuiRunner::Run() {
     // those two flags.
     glfwPollEvents();
 
+	// Skip frame rendering if the window width or heigh is 0
+	// Not doing so will cause the docking system to lose its mind
+	int size[2];
+	GetWindowSize(size);
+	if (size[0] == 0 || size[1] == 0) continue;
+
     // Start the ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();

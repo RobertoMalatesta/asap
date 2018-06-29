@@ -58,10 +58,9 @@ void ApplicationBase::ShutDown() {
 }
 
 bool ApplicationBase::Draw() {
-  auto menu_height = DrawMainMenu();
-
   if (ImGui::GetIO().DisplaySize.y > 0) {
-    auto pos = ImVec2(0, menu_height);
+	auto menu_height = DrawMainMenu();
+	auto pos = ImVec2(0, menu_height);
     auto size = ImGui::GetIO().DisplaySize;
     size.y -= pos.y;
     ImGui::RootDock(pos, ImVec2(size.x, size.y - 16.0f));
